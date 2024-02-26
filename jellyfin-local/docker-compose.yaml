@@ -1,0 +1,16 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: "jellyfin-l"
+    user: 1000:1000
+    ports:
+      - 127.0.0.1:8096:8096 # enable this for localhost access only - recommended for insecure networks
+      #- 8096:8096 # enable this for LAN access only
+    volumes:
+    # you do not have to use the same local filepaths that I do for volume mapping in the containers,
+    # but you do have to make sure whatever filepath you use is mapped to the correct filepath in the container
+      - ~/Jellyfin/jellyfin-server/config:/config
+      - ~/Jellyfin/jellyfin-server/cache:/cache
+      - ~/Documents/Jellyfin/Movies:/Movies:ro
+      - ~/Documents/Jellyfin/Shows:/Shows:ro
+    restart: unless-stopped
