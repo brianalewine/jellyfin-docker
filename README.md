@@ -165,3 +165,4 @@ This guide will walk you through the process of setting up `jellyfin-tailscale` 
 - **Inspect Docker Services**: Use `docker-compose ps` to check the status of your Docker services. All services should be in the `Up` state.
 - **Check Caddyfile Configuration**: Ensure that the Caddyfile configuration is correct, and that the hostname and tailnet name match those set in the Tailscale admin console.
 - **Restart Docker Services**: If all else fails, try restarting your Docker services with `docker-compose down` followed by `docker-compose up -d`.
+- **USB Passthrough**: Docker desktop doesn't allow for USB passthrough, so if you want to access media from a USB device, you will have to install [colima](https://github.com/abiosoft/colima)
