@@ -1,0 +1,99 @@
+networks:
+  # network created via docker
+  # all other containers are also on it
+  proxy-network:
+    name: "proxy-network"
+
+volumes:
+  # shared volumes any container in the same docker-compose file can access
+  # used to share the tailscaled.sock file with caddy
+  sock_volume:
+
+  # you do not have to use the same local filepaths that I do for volume mapping in the containers,
+  # but you do have to make sure whatever filepath you use is mapped to the correct filepath in the container
+services:
+  jellyfin:
+    image: jellyfin/jellyfin
+    container_name: "jellyfin-ts"
+    user: 1000:1000
+    networks:
+      - proxy-network
+    volumes:
+      - ~/Jellyfin/jellyfin-server/config:/config
+      - ~/Jellyfin/jellyfin-server/cache:/cache
+      # ro means read only, we don't want jellyfin accidentally deleting our files
+      - ~/Documents/Jellyfin/Movies:/Movies:ro
+      - ~/Documents/Jellyfin/Shows:/Shows:ro
+    restart: unless-stopped
+
+  caddy:
+    image: caddy
+    container_name: "caddy"
+    hostname: caddy
+    networks:
+      # caddy is in the network with the other containers
+      - proxy-network
+    depends_on:
+      # wait for tailscale to boot
+      # to communicate to it using the tailscaled.sock
+      - tailscale 
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ~/Jellyfin/jellyfin-tailscale/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ~/Jellyfin/jellyfin-tailscale/caddy/data:/data
+      - ~/Jellyfin/jellyfin-tailscale/caddy/config:/config
+      # get socket tailscale created in the shared volume and share it with caddy
+      # caddy expects the socket to be at /var/run/tailscale/tailscaled.sock
+      - sock_volume:/var/run/tailscale
+    restart: unless-stopped
+
+  tailscale:
+        container_name: tailscaled
+        image: tailscale/tailscale
+        network_mode: host
+        # tailscale sets new machine names to the OS hostname
+        # docker-desktop is the default hostname for docker
+        # if you modify this and recreate the container, the machine name will be updated automatically
+        # make sure this matches the machine name you set in the Caddyfile
+        hostname: jellyfin
+        cap_add:
+            - NET_ADMIN
+            - NET_RAW
+        volumes:
+            # saves container state after container is recreated
+            # used varlib because var folder isn't needed locally
+            - ~/Jellyfin/jellyfin-tailscale/tailscale/varlib:/var/lib
+            # containerized version of tailscale uses /tmp/tailscaled.sock
+            # binds the socket to a docker volume so it can be accessed by other containers
+            # this can't be a local directory because the socket is created by the container
+            - sock_volume:/tmp
+        environment:
+            # if you add a command key, it will override environment key variables with default values!
+            # info: https://tailscale.com/kb/1282/docker#ts_socks5_server
+
+            # set the authkey to reusable when generating it from tailscale
+            - TS_AUTHKEY=tskey-auth-xxxxxxxxxxxxxxxxxxxx
+            # prevents a new machine from being added each time the container is restarted
+            - TS_STATE_DIR=/var/lib/tailscale
+            # https://tailscale.com/kb/1112/userspace-networking
+            - TS_USERSPACE_NETWORKING=userspace-networking
+        restart: unless-stopped
+
+# Steps
+#1. run the command: docker-compose up -d
+#2. run the command: docker exec tailscaled tailscale --socket /tmp/tailscaled.sock cert <machine-name>.<tailnet-name>.ts.net
+#3. remove the auth key from docker-compose.yaml, save the file, you can keep the container running
+#4. run the command: docker-compose up -d
+
+# Filepath
+# .
+# ├── caddy
+# │   ├── Caddyfile
+# │   ├── config
+# │   └── data
+# ├── docker-compose.yaml
+# └── tailscale
+#     └── varlib

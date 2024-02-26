@@ -1,0 +1,9 @@
+# make sure the machine name is the same as the hostname of the tailscale container in docker-compose.yml
+<machine-name>.<tailnet-name>.ts.net {
+	reverse_proxy jellyfin:8096
+}
+
+# set to loopback address so it works on the host machine
+127.0.0.1 {
+	reverse_proxy jellyfin:8096
+}
